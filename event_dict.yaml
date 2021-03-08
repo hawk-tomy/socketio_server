@@ -1,0 +1,13 @@
+tab_now_tps: b2p
+tab_members: b2p
+tab_server_name: b2p
+tab_whitelist: b2p
+tab_fetch_uuid: b2p
+tab_abnormal_tps: p2b
+
+siege_forts: b2p
+siege_start: p2b
+siege_end: p2b
+siege_now_info: b2p
+siege_new_fort: p2b
+
