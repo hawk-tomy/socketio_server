@@ -1,3 +1,4 @@
+このリポジトリはminecraftとdiscord botをつなぐsocket.io サーバーの実装です。
 # socketIOのeventとかの仕様について
 eventは種類分けすると三種類。
 
