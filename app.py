@@ -65,7 +65,7 @@ class p2b():
         bots = users.find_notice(sender)
         for bot in bots:
             if bot['connected']:
-                socketio.emit(self.event,json,sender,to=bot['sid'])
+                socketio.emit(self.event,{'data':json,'sender':sender},to=bot['sid'])
 
 
 class b2p():

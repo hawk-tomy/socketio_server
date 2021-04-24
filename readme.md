@@ -57,7 +57,7 @@ event名をkey、その値がp2bなら二つ目の、b2pなら三つ目のevent�
 `tab_abnormal_tps`など。
 1. clientがbotの場合。
     - 送信しても何も発生しない。
-    - 受信のみ。なお、第一引数にjson、第二引数にstring(送り主の名前)を受け取る必要がある。
+    - 受信のみ。返り値は`{'data':<data>,"sender":<name>}`。dataの中に詳細な情報、senderに
 2. clientがpluginの場合。
     - 何かあったら容赦なく発火させるevent群。単一のjsonのみ送信可能。
     - 何かとは何時のことかってのは各eventごとに異なる。
