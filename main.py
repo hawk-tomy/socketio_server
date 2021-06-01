@@ -37,137 +37,139 @@ def close_user():
 close_user()
 
 
-def json_decorator(func):
-    def decorator(json):
-        if isinstance(json,(dict,list)):
-            return func(json)
-        else:
-            logger.warning('not json')
-    return decorator
 
+def event_receiver(event, event_type):
+    if event_type == 'p2b':
 
-class p2b():
-    def __init__(self,event):
-        self.event = event
+        @sio.on(event)
+        async def p2b(sid, json):
+            if users['sid', sid, 'type'] != 'plugin':
+                return
+            sender = users['sid', sid, 'name']
+            bots = users.find_notice(sender)
+            for bot in bots:
+                if bot['connected']:
+                    await sio.emit(self.event,json,sender,to=bot['sid'])
 
-    def __call__(self,json):
-        sid = request.sid
-        if users['sid', sid, 'type'] != 'plugin':
-            return
-        sender = users['sid', sid, 'name']
-        bots = users.find_notice(sender)
-        for bot in bots:
-            if bot['connected']:
-                sio.emit(self.event,json,sender,to=bot['sid'])
+    elif event_type == 'b2p':
 
-
-class b2p():
-    def __init__(self,event):
-        self.event = event
-
-    def __call__(self,json):
+        @sio.on(event)
+        async def b2p(sid, json):
             to = json.pop('to',None)
             if to is None or users[to,] is None:
-                sio.emit(self.event,
+                await sio.emit(
+                    self.event,
                     {
                         'status': 'error',
                         'message': 'key "to" is not found in this json'
-                        })
+                        },
+                     to=sid
+                     )
                 return
             to_user = users[to,]
             if 'id' not in json:
-                sio.emit(self.event,
+                await sio.emit(
+                    self.event,
                     {
                         'status': 'error',
                         'message': 'key "id" is not found in this json'
-                    })
+                    },
+                    to=sid
+                    )
                 return
             if to_user['connected']:
                 to_sid = to_user['sid']
                 json['to'] = users['sid', request.sid, 'name']
-                sio.emit(self.event, json, to=to_sid)
+                await sio.emit(self.event, json, to=to_sid)
             else:
-                sio.emit(self.event,
+                await sio.emit(
+                    self.event,
                     {
                         'status': 'error',
                         'message': 'this destination is not online'
-                        })
+                        },
+                    to=sid
+                    )
 
-
-def event_receiver(event):
-    event_type = event_dict.get(event)
-    if event_type == 'p2b':
-        handler = p2b(event)
-    elif event_type == 'b2p':
-        handler = b2p(event)
     else:
         raise ValueError(f'this event {event} is not found')
-    return handler
-[sio.on_event(e,event_receiver(e)) for e in event_dict]
+
+
+for event, event_type in event_dict.items():
+    event_receiver(event, event_type)
 
 
 @sio.event
-def notice(json):
-    user = users['sid', request.sid]
+async def notice(sid, json):
+    user = users['sid', sid]
     if user['type'] in ('bot',):
         if json['name'] not in (u['name'] for u in users.users):
-            emit('notice',
-                    {'status':'error','message':'this user is not found'})
+            await sio.emit(
+                'notice',
+                {'status': 'error', 'message': 'this user is not found'}
+                to=sid
+                )
         elif users['name', json['name'], 'type'] == 'plugin':
             user.append('notice',json['name'])
             close_user()
-            sio.emit('notice',{'status':'success', 'message':'success'})
+            await sio.emit('notice', {'status': 'success', 'message': 'success'}, to=sid)
         else:
-            sio.emit('notice',
-                    {'status':'error','message':'this user is not plugin'})
+            await sio.emit(
+                'notice',
+                {'status':'error','message':'this user is not plugin'}
+                to=sid
+                )
     else:
-        sio.emit('notice',
-                {'status':'error','message':'this event is BOT only'})
+        await sio.emit(
+            'notice',
+            {'status':'error','message':'this event is BOT only'}
+            to=sid
+            )
 
 
 @sio.event
-def get_notice():
-    user = users['sid', request.sid]
-    sio.emit('get_notice',{'notices':user['notice']})
+async def get_notice(sid):
+    user = users['sid', sid]
+    await sio.emit('get_notice',{'notices':user['notice']},to=sid)
 
 
 @sio.event
-def login(json):
+async def login(sid, json):
     try:
         print(users)
         password = users['name', json['name'], 'password']
     except KeyError:
-        sio.emit('login_result', {'status':'error', 'message':'Bad Name'})
-        flask_socketio.disconnect()
+        await sio.emit('login_result', {'status':'error', 'message':'Bad Name'}, to=sid)
+        await sio.disconnect(sid)
     else:
         if password == json['password']:
-            sio.emit('login_result', {'status':'success', 'message':'success'})
+            await sio.emit('login_result', {'status':'success', 'message':'success'},to=sid)
             user = users[json['name'],]
-            user['sid'] = request.sid
+            user['sid'] = sid
             user['connected'] = True
             close_user()
             bots = users.find_notice(user['name'])
             for bot in bots:
                 if bot['connected']:
-                    sio.emit('plugin_login',user['name'],to=bot['sid'])
+                    await sio.emit('plugin_login',user['name'],to=bot['sid'])
         else:
-            sio.emit('login_result', {'status':'error', 'message':'Bad Password'})
-            flask_socketio.disconnect()
+            await sio.emit('login_result', {'status':'error', 'message':'Bad Password'},to=sid)
+            await sio.disconnect(sid)
 
 
 @sio.event
-def connect():
+async def connect(sid):
     logger.info(f'{request.sid} is connected')
-    sio.sleep(1)
-    sio.emit('message','your connection.pls wait login event')
-    sio.emit('login',{'status':'notice','message':'please login'})
+    await sio.sleep(1)
+    await sio.emit('message','your connection.pls wait login event',to=sid)
+    await sio.emit('login',{'status':'notice','message':'please login'},to=sid)
 
 
 @sio.event
-def disconnect():
+async def disconnect(sid):
     logger.info(f'{request.sid} is disconnected')
     try:
-        user = users['sid',request.sid]
+        user = users['sid',sid]
     except KeyError:
         pass
     else:
