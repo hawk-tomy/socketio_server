@@ -15,7 +15,6 @@ elogger = logger.getChild('eIO')
 sio = socketio.AsyncServer(
     logger=slogger,
     engineio_logger=elogger,
-    async_mode=async_mode,
     ping_interval=3600,
     async_mode='aiohttp'
     )
